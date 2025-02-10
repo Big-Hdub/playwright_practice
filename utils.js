@@ -1,11 +1,11 @@
 const fs = require('fs');
 
-export const matchScraper = async ({ url, page }) => {
+const matchScraper = async ({ url, page }) => {
     const data = JSON.parse(fs.readFileSync('mensVB.json'));
     data.welcome = 'Welcome to the match scraper!';
     data.url = url;
 
-    await page.goto(url);
+    await page.goto('https://www.ncaa.com' + url);
     await page.pause();
 
     const title = await page.title();
@@ -16,3 +16,5 @@ export const matchScraper = async ({ url, page }) => {
 
     return title;
 }
+
+module.exports = { matchScraper };
