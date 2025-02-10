@@ -5,10 +5,10 @@ const { chromium, devices } = require('playwright');
     // Setup
     const browser = await chromium.launch({ headless: false });
     const context = await browser.newContext({ ...devices['Desktop Chrome'] });
+    await context.route('**\/*.{jpg,png,gif,svg,woff,woff2,ttf,eot,otf,css}', route => route.abort());
+
     const page = await context.newPage();
 
-    // The actual interesting bit
-    await context.route('**.jpg', route => route.abort());
     await page.goto('https://www.ncaa.com/scoreboard/volleyball-men/d1/2025/01/01');
 
     await page.pause();
