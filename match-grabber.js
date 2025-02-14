@@ -4,45 +4,26 @@ const { matchScraper } = require('./utils');
 
 (async () => {
     // Setup
-    const browser = await chromium.launch({ headless: false });
+    const browser = await chromium.launch();
     const context = await browser.newContext({ serviceWorkers: 'block', ...devices['Desktop Chrome'] });
-    await context.route('**\/*.{jpg,png,gif,svg,woff,woff2,ttf,eot,otf,css}', route => route.abort());
-    // await context.route('https://sdataprod.ncaa.com/**', route => route.abort());
+    await context.route('**\/*.{jpg,png,gif,svg,css}', route => route.abort());
 
     const page = await context.newPage();
 
     await page.goto('https://www.ncaa.com/scoreboard/volleyball-men/d1/2025/01/01', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
 
     let dateNav = await page.locator(`[class*='hasGames']`).all();
 
-    for (let i = 0; i < dateNav.length; i++) {
-        await dateNav[i].click();
-        await page.waitForTimeout(500);
-        // await page.pause();
+    for (let date of dateNav) {
+        await date.click({ waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(1000);
+
+        const games = await page.locator(`[id*='game-']>[class='gamePod-link']`).all();
+        for (let game of games) {
+            await matchScraper({ url: await game.getAttribute('href'), page: await context.newPage() });
+        }
     }
-    // let dateNavLinks = await Promise.all(dateNav.map(async (date) => await date.getAttribute('href')));
-
-    // for (let [i, url] of dateNavLinks.entries()) {
-
-    // }
-
-    // await Promise.all(
-    //     dateNav.forEach(async nav => {
-    //         console.log(nav);
-    //         await nav.click();
-    //         await page.waitForTimeout(500);
-    //         await page.pause();
-    //     })
-    // )
-
-
-
-    // const noGames = await page.locator(`[id='scoreboardGames']:has-text('No games')`).isVisible();
-
-
-    // // await page.pause();
-    // await matchScraper({ url: '/game/6382727', page: await context.newPage() });
 
 
     // Teardown
