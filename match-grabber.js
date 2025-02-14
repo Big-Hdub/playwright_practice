@@ -1,10 +1,9 @@
-const assert = require('node:assert');
 const { chromium, devices } = require('playwright');
-const { matchScraper } = require('./utils');
+const { dayNavigator, dateChecker } = require('./utils');
 
 (async () => {
-    // Setup
-    const browser = await chromium.launch();
+
+    const browser = await chromium.launch({ headless: false });
     const context = await browser.newContext({ serviceWorkers: 'block', ...devices['Desktop Chrome'] });
     await context.route('**\/*.{jpg,png,gif,svg,css}', route => route.abort());
 
@@ -13,20 +12,22 @@ const { matchScraper } = require('./utils');
     await page.goto('https://www.ncaa.com/scoreboard/volleyball-men/d1/2025/01/01', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1000);
 
-    let dateNav = await page.locator(`[class*='hasGames']`).all();
+    let [month, year] = (await page.locator('[id*="DateNav-header"]').locator('[class="current"]').textContent()).trim().split(' ');
+    let day = 1;
 
-    for (let date of dateNav) {
-        await date.click({ waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(1000);
-
-        const games = await page.locator(`[id*='game-']>[class='gamePod-link']`).all();
-        for (let game of games) {
-            await matchScraper({ url: await game.getAttribute('href'), page: await context.newPage() });
+    while (dateChecker(month, day, year)) {
+        const check = !(await dayNavigator({ page, context, month, year }));
+        if (check) break;
+        else {
+            await page.locator('[class*="datepicker-trigger"]').click({ waitForTimeout: 200 })
+            await page.locator('[class*="datepicker-next"]').click({ waitForTimeout: 200 })
+            await page.locator('[data-handler="selectDay"]').first().click({ waitForTimeout: 200 })
         }
+        [month, year] = (await page.locator('[id*="DateNav-header"]').locator('[class="current"]').textContent()).trim().split(' ');
+        day = +(await page.locator('[class*="selected"]').locator('[class*="dayNumber"]').textContent());
     }
 
 
-    // Teardown
     await context.close();
     await browser.close();
     return;

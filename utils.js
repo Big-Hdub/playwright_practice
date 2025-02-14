@@ -1,5 +1,24 @@
 const fs = require('fs');
 
+const dayNavigator = async ({ page, context }) => {
+    let dateNav = await page.locator(`[class*='hasGames']`).all();
+
+    for (let date of dateNav) {
+        await date.click({ waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(1000);
+
+        const [month, year] = (await page.locator('[id*="DateNav-header"]').locator('[class="current"]').textContent()).trim().split(' ');
+        const day = +(await page.locator('[class*="selected"]').locator('[class*="dayNumber"]').textContent());
+        const check = !(dateChecker(month, day, year));
+        if (check) return;
+
+        const games = await page.locator(`[id*='game-']>[class='gamePod-link']`).all();
+        for (let game of games) {
+            await matchScraper({ url: await game.getAttribute('href'), page: await context.newPage() });
+        }
+    }
+}
+
 const matchScraper = async ({ url, page }) => {
     const data = JSON.parse(fs.readFileSync('mensVB.json'));
     if (!data.games) data.games = {};
@@ -27,8 +46,8 @@ const matchScraper = async ({ url, page }) => {
                 for (let stat of player) {
                     stats.push((await stat.textContent()).trim());
                 }
+                if (stats[0] === 'Total') break;
                 team.players[+stats[0]] = [stats[1], ...stats.slice(2).map(Number)];
-                if (stats[0] === 'Total') continue;
                 if (!data.teams[teamName].players[stats[0]]) data.teams[teamName].players[stats[0]] = team.players[stats[0]];
                 else {
                     for (let i = 2; i < stats.length; i++) {
@@ -39,8 +58,8 @@ const matchScraper = async ({ url, page }) => {
                 }
             }
             data.games[url].teams.push(team);
+            console.log(team);
         }
-        console.log(data);
 
         fs.writeFileSync('mensVB.json', JSON.stringify(data, null, 2), 'utf-8');
     }
@@ -48,4 +67,10 @@ const matchScraper = async ({ url, page }) => {
     return await page.close();
 }
 
-module.exports = { matchScraper };
+const dateChecker = (month, day, year) => {
+    if (typeof month === 'string') month = new Date(Date.parse(month + " 1, 2012")).getMonth() + 1;
+    const date = new Date(year, month - 1, day);
+    return date < (new Date()).setHours(0, 0, 0, 0);
+}
+
+module.exports = { dayNavigator, matchScraper, dateChecker };
